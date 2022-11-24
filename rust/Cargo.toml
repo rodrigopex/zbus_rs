@@ -1,0 +1,22 @@
+[package]
+name = "rust"
+version = "0.1.0"
+authors = ["Rodrigo Peixoto <rodrigopex@gmail.com>"]
+edition = "2021"
+
+[lib]
+crate-type = ["staticlib"]
+
+[build-dependencies]
+bindgen = "0.63.0"
+
+[dependencies]
+panic-halt = "0.2.0"
+
+[profile.release]
+codegen-units = 1
+lto = true
+panic = "abort"
+
+[profile.dev]
+panic = "abort"
