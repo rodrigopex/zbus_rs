@@ -12,6 +12,7 @@ bindgen = "0.63.0"
 
 [dependencies]
 panic-halt = "0.2.0"
+paste = "1.0.10"
 
 [profile.release]
 codegen-units = 1

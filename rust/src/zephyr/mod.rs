@@ -359,42 +359,31 @@ macro_rules! z_log_dbg {
 }
 
 #[macro_export]
-macro_rules! zbus_c_channel_declare {
-    ($($arg:ident),+) => {
-extern "C" {
-    $(
-    static $arg: struct_zbus_channel;
-    )*
-    }
-    }
-}
-
-#[macro_export]
-macro_rules! zbus_c_subscriber_declare {
-    ($($arg:ident),+) => {
-extern "C" {
-    $(
-    static $arg: struct_zbus_observer;
-    )*
-}}
-}
-
-#[macro_export]
-macro_rules! zbus_channel_create {
-    (name=$chan:ident, msg_type=$msg:ident) => {
-        zbus::Channel::<$msg>::new(unsafe { &$chan as *const struct_zbus_channel })
-    };
-    ($chan:ident, $msg:ident) => {
-        zbus::Channel::<$msg>::new(unsafe { &$chan as *const struct_zbus_channel })
+macro_rules! zbus_channel_declare {
+    {name:$chan:ident, msg_type:$msg:ident} => {
+        paste::paste! {
+            extern "C" {
+                #[link_name=stringify!($chan)]
+                static [<c_ $chan>] : struct_zbus_channel;
+            }
+            let $chan = zbus::Channel::<$msg>::new(unsafe { & [<c_ $chan>] as *const struct_zbus_channel });
+        }
     };
 }
 
 #[macro_export]
-macro_rules! zbus_subscriber_create {
-    ($sub:ident) => {
-        zbus::Subscriber::new(unsafe { &$sub as *const struct_zbus_observer })
+macro_rules! zbus_subscriber_declare {
+    {name:$sub:ident} => {
+        paste::paste! {
+            extern "C" {
+                #[link_name=stringify!($sub)]
+                static [<c_ $sub>] : struct_zbus_observer;
+            }
+           let $sub =  zbus::Subscriber::new(unsafe { &[<c_ $sub>] as *const struct_zbus_observer });
+        }
     };
 }
+
 #[macro_export]
 macro_rules! printk {
     ($fmt:literal) => {

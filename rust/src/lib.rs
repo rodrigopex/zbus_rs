@@ -19,9 +19,6 @@ use zephyr::*;
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 mod zephyr;
 
-zbus_c_channel_declare!(version_chan, acc_data_chan, ack_chan);
-zbus_c_subscriber_declare!(rust_sub);
-
 #[no_mangle]
 pub extern "C" fn rust_function(chan: *const struct_zbus_channel) {
     printk!(
@@ -34,16 +31,27 @@ pub extern "C" fn rust_function(chan: *const struct_zbus_channel) {
 
 #[no_mangle]
 pub extern "C" fn rust_thread() {
-    let version_channel = zbus_channel_create!(name = version_chan, msg_type = struct_version_msg);
-    let acc_channel = zbus_channel_create!(name = acc_data_chan, msg_type = struct_acc_msg);
-    let ack_channel = zbus_channel_create!(ack_chan, struct_ack_msg);
-    let rust_subscriber = zbus_subscriber_create!(rust_sub);
+    zbus_channel_declare! {
+        name: version_chan,
+        msg_type: struct_version_msg
+    }
+    zbus_channel_declare! {
+        name: acc_data_chan,
+        msg_type: struct_acc_msg
+    }
+    zbus_channel_declare! {
+        name: ack_chan,
+        msg_type: struct_ack_msg
+    }
+    zbus_subscriber_declare! {
+        name: rust_sub
+    }
 
     let mut acc = struct_acc_msg { x: 1, y: 2, z: 3 };
 
     z_log_inf!("Rust thread started!");
 
-    match version_channel.read(Duration::from_secs(1)) {
+    match version_chan.read(Duration::from_secs(1)) {
         Ok(struct_version_msg {
             major,
             minor,
@@ -55,7 +63,7 @@ pub extern "C" fn rust_thread() {
         }
         Err(e) => z_log_err!("Could not read the channel. Error code {e}"),
     }
-    let _ = acc_channel.claim(Duration::from_millis(1000), |claimed_channel| {
+    let _ = acc_data_chan.claim(Duration::from_millis(1000), |claimed_channel| {
         let struct_version_msg {
             major,
             minor,
@@ -68,7 +76,7 @@ pub extern "C" fn rust_thread() {
     });
 
     loop {
-        match acc_channel.publish(&acc, Duration::from_secs(1)) {
+        match acc_data_chan.publish(&acc, Duration::from_secs(1)) {
             Ok(_) => z_log_inf!("Rust producer: Message sent!"),
             Err(e) => z_log_err!("Could not publish the message. Error code {e}"),
         }
@@ -76,13 +84,13 @@ pub extern "C" fn rust_thread() {
         acc.y += 2;
         acc.z += 3;
 
-        match rust_subscriber.wait(Duration::MAX) {
+        match rust_sub.wait(Duration::MAX) {
             Ok(changed_channel_ptr) => {
                 debug_assert_eq!(
-                    ack_channel, changed_channel_ptr,
+                    ack_chan, changed_channel_ptr,
                     "This subscriber must not receive a channel other then ack_channel"
                 );
-                match ack_channel.read(Duration::from_secs(1)) {
+                match ack_chan.read(Duration::from_secs(1)) {
                     Ok(struct_ack_msg { sequence }) => {
                         z_log_wrn!("Rust subscriber sequence: {sequence}")
                     }
