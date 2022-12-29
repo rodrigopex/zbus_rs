@@ -18,8 +18,12 @@ fn main() {
         // The input header we would like to generate
         // bindings for.
         .header("../src/messages.h")
+        // .clang_arg("--gcc-install-dir=~/.local/zephyr-sdk-0.15.2/arm-zephyr-eabi/lib/gcc/arm-zephyr-eabi/12.1.0")
+        // .clang_arg("--target=thumbv7-eabif")
+        // .clang_arg("-mfloat-abi=hard")
         .clang_arg("--target=riscv32")
-        .clang_arg("-march=rv32imac")
+        .clang_arg("-march=rv32imc")
+        // .clang_arg("-march=rv32imac")
         .derive_default(true)
         .size_t_is_usize(true)
         .rustfmt_bindings(true)

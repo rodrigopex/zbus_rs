@@ -9,6 +9,7 @@ use alloc::format;
 use core::alloc::{GlobalAlloc, Layout};
 use core::ffi::{c_char, c_void};
 use core::fmt::Debug;
+use core::marker::PhantomData;
 use core::panic::PanicInfo;
 use core::time::Duration;
 
@@ -66,6 +67,31 @@ pub mod ffi {
     }
 }
 
+pub const enum_rs_log_level_RS_ERR: enum_rs_log_level = 0;
+pub const enum_rs_log_level_RS_WRN: enum_rs_log_level = 1;
+pub const enum_rs_log_level_RS_INF: enum_rs_log_level = 2;
+pub const enum_rs_log_level_RS_DBG: enum_rs_log_level = 3;
+
+pub type enum_rs_log_level = ::core::ffi::c_uint;
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct struct_rs_log_msg {
+    pub level: enum_rs_log_level,
+    pub msg: *const ::core::ffi::c_char,
+    pub size: u8,
+}
+
+impl Default for struct_rs_log_msg {
+    fn default() -> Self {
+        let mut s = ::core::mem::MaybeUninit::<Self>::uninit();
+        unsafe {
+            ::core::ptr::write_bytes(s.as_mut_ptr(), 0, 1);
+            s.assume_init()
+        }
+    }
+}
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct struct_zbus_observer {
@@ -101,10 +127,10 @@ pub mod zbus {
     use core::marker::PhantomData;
 
     #[repr(C)]
-    #[derive(Debug, Copy, Clone, PartialEq)]
+    #[derive(Debug, Copy, Clone)]
     pub struct Channel<MessageType> {
-        c_reference: *const struct_zbus_channel,
-        phantom: PhantomData<MessageType>,
+        pub(crate) c_reference: &'static struct_zbus_channel,
+        pub(crate) phantom: PhantomData<MessageType>,
     }
 
     pub trait CStructWrapper {
@@ -120,19 +146,21 @@ pub mod zbus {
     }
 
     impl<MessageType> PartialEq<*const struct_zbus_channel> for Channel<MessageType>
-    where
-        MessageType: Debug + Default,
+        where
+            MessageType: Debug + Default,
     {
         fn eq(&self, other: &*const struct_zbus_channel) -> bool {
-            self.c_reference == *other
+            self.c_reference as *const struct_zbus_channel == *other
         }
     }
 
+    unsafe impl<MessageType> Sync for Channel<MessageType> {}
+
     impl<MessageType> Channel<MessageType>
-    where
-        MessageType: Default + Debug,
+        where
+            MessageType: Default + Debug,
     {
-        pub fn new(chan_ref: *const struct_zbus_channel) -> Self {
+        pub fn new(chan_ref: &'static struct_zbus_channel) -> Self {
             Self {
                 c_reference: chan_ref,
                 phantom: PhantomData,
@@ -180,8 +208,8 @@ pub mod zbus {
         }
 
         pub fn claim<F>(&self, timeout: Duration, function: F) -> Result<(), i32>
-        where
-            F: FnOnce(ClaimedChannel<MessageType>) -> Result<(), i32>,
+            where
+                F: FnOnce(ClaimedChannel<MessageType>) -> Result<(), i32>,
         {
             match unsafe {
                 ffi::zbus_chan_claim(
@@ -238,22 +266,25 @@ pub mod zbus {
             }
         }
     }
+
     #[repr(C)]
     #[derive(Debug, Copy, Clone)]
     pub struct Subscriber {
-        c_reference: *const struct_zbus_observer,
+        pub c_reference: &'static struct_zbus_observer,
     }
 
     impl CStructWrapper for Subscriber {
-        type Output = *const struct_zbus_observer;
+        type Output = &'static struct_zbus_observer;
 
         fn get_c_reference(&self) -> Self::Output {
             self.c_reference
         }
     }
 
+    unsafe impl Sync for Subscriber {}
+
     impl Subscriber {
-        pub fn new(sub_ref: *const struct_zbus_observer) -> Self {
+        pub fn new(sub_ref: &'static struct_zbus_observer) -> Self {
             Self {
                 c_reference: sub_ref,
             }
@@ -317,19 +348,31 @@ pub fn sleep(timeout: Duration) {
         ffi::zephyr_rs_delay_ms(timeout.as_millis() as u32);
     }
 }
+
 pub enum LogLevel {
-    Err = 1,
-    Wrn = 2,
-    Inf = 3,
-    Dbg = 4,
+    Err = 0,
+    Wrn = 1,
+    Inf = 2,
+    Dbg = 3,
 }
 
+extern "C" {
+    #[link_name = "log_chan"]
+    static c_log_chan: struct_zbus_channel;
+}
+
+static LOG_CHAN: zbus::Channel::<struct_rs_log_msg> = zbus::Channel {
+    c_reference: unsafe { &c_log_chan },
+    phantom: PhantomData,
+};
+
 pub fn log(level: LogLevel, text: &str) {
-    if let Ok(c_string) = alloc::ffi::CString::new(text) {
-        unsafe {
-            ffi::zephyr_rs_log(level as u8, c_string.as_c_str().as_ptr());
-        }
-    }
+    let x = struct_rs_log_msg {
+        level: level as enum_rs_log_level,
+        msg: text.as_ptr() as *const c_char,
+        size: text.len() as u8,
+    };
+    LOG_CHAN.publish(&x, Duration::from_millis(200)).expect("It must publish!");
 }
 
 #[macro_export]
@@ -359,27 +402,32 @@ macro_rules! z_log_dbg {
 }
 
 #[macro_export]
-macro_rules! zbus_channel_declare {
+macro_rules! zbus_static_channel_declare {
     {name:$chan:ident, msg_type:$msg:ident} => {
         paste::paste! {
             extern "C" {
                 #[link_name=stringify!($chan)]
                 static [<c_ $chan>] : struct_zbus_channel;
             }
-            let $chan = zbus::Channel::<$msg>::new(unsafe { & [<c_ $chan>] as *const struct_zbus_channel });
+            static $chan : zbus::Channel::<$msg> = zbus::Channel{
+                c_reference:  unsafe { & [<c_ $chan>] },
+                phantom: ::core::marker::PhantomData,
+            };
         }
     };
 }
 
 #[macro_export]
-macro_rules! zbus_subscriber_declare {
+macro_rules! zbus_static_subscriber_declare {
     {name:$sub:ident} => {
         paste::paste! {
             extern "C" {
                 #[link_name=stringify!($sub)]
                 static [<c_ $sub>] : struct_zbus_observer;
             }
-           let $sub =  zbus::Subscriber::new(unsafe { &[<c_ $sub>] as *const struct_zbus_observer });
+            static $sub : zbus::Subscriber = zbus::Subscriber{
+                c_reference:  unsafe { & [<c_ $sub>] },
+            };
         }
     };
 }

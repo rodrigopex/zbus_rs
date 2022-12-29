@@ -19,7 +19,7 @@ struct acc_msg {
 };
 
 struct ack_msg {
-	uint64_t sequence;
+	uint32_t sequence;
 };
 
 #endif /* _MESSAGES_H_ */
