@@ -39,7 +39,6 @@ void rust_thread(void);
 
 void c_listener_callback(const struct zbus_channel *chan)
 {
-
 	const struct ack_msg *msg = zbus_chan_const_msg(chan);
 	LOG_DBG("C listener sequence: %u", msg->sequence);
 }

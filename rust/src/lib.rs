@@ -36,12 +36,10 @@ zbus_static_subscriber_declare! {
 }
 
 #[no_mangle]
-pub extern "C" fn rust_function(chan: *const struct_zbus_channel) {
+pub extern "C" fn rust_function(_chan: *const struct_zbus_channel) {
     printk!(
-        "Rust listener sequence: %llu\n\0",
-        ack_chan
-            .get_const_msg()
-            .sequence
+        "Rust listener sequence: %u\n\0",
+        ack_chan.get_const_msg().sequence
     );
 }
 
