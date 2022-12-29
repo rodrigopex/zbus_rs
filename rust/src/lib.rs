@@ -19,11 +19,27 @@ use zephyr::*;
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 mod zephyr;
 
+zbus_static_channel_declare! {
+    name: version_chan,
+    msg_type: struct_version_msg
+}
+zbus_static_channel_declare! {
+    name: acc_data_chan,
+    msg_type: struct_acc_msg
+}
+zbus_static_channel_declare! {
+    name: ack_chan,
+    msg_type: struct_ack_msg
+}
+zbus_static_subscriber_declare! {
+    name: rust_sub
+}
+
 #[no_mangle]
 pub extern "C" fn rust_function(chan: *const struct_zbus_channel) {
     printk!(
-        "Rust listener sequence: %llu\n",
-        zbus::Channel::<struct_ack_msg>::new(chan)
+        "Rust listener sequence: %llu\n\0",
+        ack_chan
             .get_const_msg()
             .sequence
     );
@@ -31,33 +47,17 @@ pub extern "C" fn rust_function(chan: *const struct_zbus_channel) {
 
 #[no_mangle]
 pub extern "C" fn rust_thread() {
-    zbus_channel_declare! {
-        name: version_chan,
-        msg_type: struct_version_msg
-    }
-    zbus_channel_declare! {
-        name: acc_data_chan,
-        msg_type: struct_acc_msg
-    }
-    zbus_channel_declare! {
-        name: ack_chan,
-        msg_type: struct_ack_msg
-    }
-    zbus_subscriber_declare! {
-        name: rust_sub
-    }
+    z_log_inf!("Rust thread started!");
 
     let mut acc = struct_acc_msg { x: 1, y: 2, z: 3 };
 
-    z_log_inf!("Rust thread started!");
-
     match version_chan.read(Duration::from_secs(1)) {
         Ok(struct_version_msg {
-            major,
-            minor,
-            build,
-        }) => {
-            let v = format!("Product firmware v{major}.{minor}.{build}");
+               major,
+               minor,
+               build,
+           }) => {
+            let v = format!("Product firmware v{major}.{minor}.{build}\0");
             debug_assert_eq!(v, "Product firmware v0.1.2");
             z_log_inf!("{}", v);
         }

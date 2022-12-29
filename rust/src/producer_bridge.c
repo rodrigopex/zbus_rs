@@ -1,9 +1,13 @@
 /*
-* Copyright (c) 2022 Rodrigo Peixoto <rodrigopex@gmail.com>
-* SPDX-License-Identifier: Apache-2.0
-*/
+ * Copyright (c) 2022 Rodrigo Peixoto <rodrigopex@gmail.com>
+ * SPDX-License-Identifier: Apache-2.0
+ */
 #include <zephyr/kernel.h>
 #include <zephyr/zbus/zbus.h>
+#include <zephyr/logging/log.h>
+#define LOG_LEVEL LOG_LEVEL_DBG
+LOG_MODULE_REGISTER(rust_bridge);
+
 #include "messages.h"
 
 ZBUS_CHAN_DEFINE(version_chan,	     /* Name */
@@ -35,9 +39,11 @@ void rust_thread(void);
 
 void c_listener_callback(const struct zbus_channel *chan)
 {
-	printk("C listener sequence: %llu\n",
-	       ((struct ack_msg *)zbus_chan_const_msg(chan))->sequence);
+
+	const struct ack_msg *msg = zbus_chan_const_msg(chan);
+	LOG_DBG("C listener sequence: %u", msg->sequence);
 }
+
 
 ZBUS_SUBSCRIBER_DEFINE(rust_sub, 4);
 

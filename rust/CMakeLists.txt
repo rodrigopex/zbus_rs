@@ -12,7 +12,21 @@ include(ExternalProject)
 
 set(RUST_SRC_DIR "${PROJECT_SOURCE_DIR}/rust")
 
-set(RUST_TARGET "riscv32imac-unknown-none-elf")
+#set(RUST_TARGET "riscv32imac-unknown-none-elf")
+set(RUST_TARGET "riscv32imc-unknown-none-elf")
+#set(RUST_TARGET "thumbv7em-none-eabihf")
+
+set(RUST_TARGET_DIR "${PROJECT_SOURCE_DIR}/build")
+
+option(RUST_MODE_RELEASE "This enables release as the Rust code portion mode" ON)
+if(RUST_MODE_RELEASE)
+    set(RUST_LIB_DESTINATION "${RUST_TARGET_DIR}/${RUST_TARGET}/release/librust.a")
+    set(RUST_RELEASE_FLAG "--release")
+else()
+    set(RUST_LIB_DESTINATION "${RUST_TARGET_DIR}/${RUST_TARGET}/debug/librust.a")
+    set(RUST_RELEASE_FLAG "--debug")
+endif()
+
 ExternalProject_Add(
         rust
         PREFIX ""
@@ -27,10 +41,11 @@ ExternalProject_Add(
         "+nightly"
         "build"
         "--target" ${RUST_TARGET}
-        "--release"
+        "--target-dir" ${RUST_TARGET_DIR}
+        ${RUST_RELEASE_FLAG}
         INSTALL_COMMAND ""
         BUILD_BYPRODUCTS
-        "${RUST_SRC_DIR}/target/${RUST_TARGET}/release/librust.a"
+        ${RUST_LIB_DESTINATION}
 )
 
 # By calling west build -t clean_rust, the target folder will be deleted
@@ -51,7 +66,7 @@ add_dependencies(
 )
 
 set_target_properties(rust_lib PROPERTIES IMPORTED_LOCATION
-        "${RUST_SRC_DIR}/target/${RUST_TARGET}/release/librust.a")
+        ${RUST_LIB_DESTINATION})
 
 # Add our application, along with -lgcc
 target_link_libraries(app PUBLIC rust_lib gcc)

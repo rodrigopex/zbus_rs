@@ -22,4 +22,7 @@ lto = true
 panic = "abort"
 
 [profile.dev]
+codegen-units = 1
+lto = false
+debug = true
 panic = "abort"
