@@ -21,13 +21,15 @@ ZBUS_CHAN_DEFINE(ack_chan,	 /* Name */
 
 static void consumer_subscriber_thread(void)
 {
+	LOG_INF("C subscriber thread started!");
+
 	const struct zbus_channel *chan;
 	struct ack_msg ack = {.sequence = 0};
 	while (!zbus_sub_wait(&consumer_sub, &chan, K_FOREVER)) {
 		struct acc_msg acc;
 
 		zbus_chan_read(chan, &acc, K_MSEC(500));
-		LOG_INF(" --> Consuming data: Acc x=%d, y=%d, z=%d", acc.x, acc.y, acc.z);
+		LOG_INF("C subscriber --> Consuming data: Acc x=%d, y=%d, z=%d", acc.x, acc.y, acc.z);
 
 		++ack.sequence;
 		zbus_chan_pub(&ack_chan, &ack, K_MSEC(250));

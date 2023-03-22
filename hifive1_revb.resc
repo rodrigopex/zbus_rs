@@ -18,3 +18,4 @@ sysbus Tag <0x10008008 4> "PRCI_PLLCFG" 0xFFFFFFFF
 :cpu PerformanceInMips 320
 
 machine StartGdbServer 3333
+start

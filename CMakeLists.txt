@@ -8,4 +8,4 @@ project(hello_world)
 target_sources(app PRIVATE src/consumer.c)
 
 add_subdirectory(rust)
-add_subdirectory("${PROJECT_SOURCE_DIR}/src/led_service")
+#add_subdirectory("${PROJECT_SOURCE_DIR}/src/led_service")

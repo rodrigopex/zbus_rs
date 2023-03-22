@@ -435,9 +435,9 @@ macro_rules! zbus_static_subscriber_declare {
 #[macro_export]
 macro_rules! printk {
     ($fmt:literal) => {
-        if let Ok(c_string) = alloc::ffi::CString::new($fmt) {
+        if let Ok(c_string) = alloc::ffi::CString::new(format!("{}", format_args!($fmt))) {
             unsafe {
-                zephyr::ffi::printk(c_string.as_ptr());
+                zephyr::ffi::printk(c_string.into_raw());
             }
         }
     };

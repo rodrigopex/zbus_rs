@@ -56,8 +56,8 @@ void log_listener_callback(const struct zbus_channel *chan)
 
 ZBUS_LISTENER_DEFINE(log_listener, log_listener_callback);
 
-ZBUS_CHAN_DEFINE(log_chan,	 /* Name */
-		 struct log_msg, /* Message type */
+ZBUS_CHAN_DEFINE(log_chan,	    /* Name */
+		 struct rs_log_msg, /* Message type */
 
 		 NULL,			       /* Validator */
 		 NULL,			       /* User data */
